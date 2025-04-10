@@ -1,0 +1,28 @@
+save_dir: save/
+model_name: VT5
+model_weights: rubentito/vt5-base-spdocvqa
+# model_weights: /SSD2/PFL-DocVQA Checkpoints/final/vt5_pfl-docvqa_e1.ckpt
+max_input_tokens: 512
+device: cuda
+seed: 42
+
+visual_module:
+  model: dit
+  model_weights: microsoft/dit-base-finetuned-rvlcdip
+  finetune: False
+
+training_parameters:
+  lr: 2e-4  # 2e-4
+  batch_size: 10
+  # warmup_iterations: 1000
+
+fl_parameters:
+  sample_clients: 2
+  total_clients: 10
+  num_rounds: 20
+  iterations_per_fl_round: 1
+
+dp_parameters:
+  providers_per_fl_round: 50
+  sensitivity: 0.5  # [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+  noise_multiplier: 1.145  # {1: 1.145, 4: 0.637, 8: 0.468}

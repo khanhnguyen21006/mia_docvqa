@@ -1,0 +1,4 @@
+dataset_name: PFL-DocVQA
+imdb_dir: /data/rrc/PFL-DocVQA/imdb
+images_dir: /data/rrc/PFL-DocVQA/images
+provider_docs: /data/rrc/PFL-DocVQA/imdb/data_points.json

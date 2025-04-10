@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# donut as whitebox
-declmh=decoder.model.decoder.embed_tokens
-lastdecblkfc1=decoder.model.decoder.layers.3.fc1
-lastdecblkfc2=decoder.model.decoder.layers.3.fc2
+# pix2struct as whitebox
+declmh=decoder.embed_tokens
+lastdecblkfc1=decoder.layer.11.mlp.DenseReluDense.wi_0
+lastdecblkfc2=decoder.layer.11.mlp.DenseReluDense.wo
 
-model=donut
-ckpt=naver-clova-ix/donut-base-finetuned-docvqa
+model=pix2struct
+ckpt=google/pix2struct-docvqa-base
 
 dataset=docvqa
-data_root=/data/users/vkhanh/mia_docvqa/data  # /path/to/DATA_ROOT
+data_root=./data  # change to DATA_ROOT
 data_dir="${data_root}/${dataset}"
 pilot=300  # 0 if use all data
 
-bl=donut_docvqa_bl
-fl=donut_docvqa_fl
-fl_lora=donut_docvqa_fl_lora
-ig=donut_docvqa_ig
+bl=pix2struct_docvqa_bl
+fl=pix2struct_docvqa_fl
+fl_lora=pix2struct_docvqa_fl_lora
+ig=pix2struct_docvqa_ig
 
 fl_alpha=0.001
-fl_tau=(12.0 8.0 1.0)
+fl_tau=(8e-4 5e-4 1e-4)
 fl_lora_alpha=0.001
-fl_lora_tau=(6.0 5.0 4.0)
+fl_lora_tau=(9e-5 8e-5 5e-5)
 ig_alpha=(0.001)
-ig_tau=(5.0 4.0 3.0 2.0)
+ig_tau=(0.001 5e-4)
 
 rand_seed=($((1 + RANDOM % 2000)))
 echo "Random seed: $rand_seed"

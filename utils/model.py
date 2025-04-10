@@ -218,26 +218,30 @@ def vt5_inference(ckpt, data_dir, seed=None, dset='pfl', attack=None, question_t
 
 	if not attack:
 		if 'pfl' in dset:
-			if dset == 'pfl_v1.2':
-				data_dir = '/data/shared/DocVQA_1.2/imdb/'
 			im_ext = '.jpg'
-			vqa_data = np.load(os.path.join(data_dir, 'pfl_test.npy'), allow_pickle=True)[1:]
+			vqa_data = np.load(os.path.join(data_dir, 'test', 'pfl_test.npy'), allow_pickle=True)[1:]
 		elif dset == 'docvqa':
-			data_dir, im_ext = '/data/users/vkhanh/due/docvqa', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)
 		elif dset == 'docvqav0':
-			data_dir, im_ext = '/data/shared/docvqav0', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)[1:]
 	else:
-		pilot_or_full = data_dir if seed is None  else os.path.join(data_dir, f'pilot/seed{seed}')
 		if dset == 'pfl':
 			im_ext = '.jpg'
 			vqa_data = np.load(os.path.join(data_dir, f'pfl_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
+			else:
+				data_dict = json.load(open(os.path.join(data_dir, f'pfl_{attack}.json'), 'r'))
 		elif 'docvqa' in dset:
 			im_ext = '.png'
-			vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'{dset}_{attack}.json'), 'r'))
+			else:
+				vqa_data = np.load(os.path.join(data_dir, f'pilot/seed{seed}', f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
 
 	score_dict = dict()
 	for _ind, _record in tqdm(enumerate(vqa_data)):
@@ -316,7 +320,7 @@ def init_donut(ckpt, lowreso=False):
 		config.decoder.max_length = max_length
 		model = VisionEncoderDecoderModel.from_pretrained(ckpt, config=config)
 
-		# TODO we should actually update max_position_embeddings and interpolate the pre-trained ones:
+		# TODO: we should update max_position_embeddings and interpolate the pre-trained ones:
 		# https://github.com/clovaai/donut/blob/0acc65a85d140852b8d9928565f0f6b2d98dc088/donut/model.py#L602
 		image_processor = DonutProcessor.from_pretrained(ckpt)
 		image_processor.feature_extractor.size = image_size[::-1] # REVERSED (width, height)
@@ -408,30 +412,36 @@ def donut_eval(model, batch, processor, return_probs=False):
 		return preds, probs
 	return preds
 
-def donut_inference(ckpt, data_dir, seed=None, dset='docvqav0', attack=None, question_type='v0', lowreso=False):
+def donut_inference(ckpt, data_dir, seed=None, dset='docvqa', attack=None, question_type='v0', lowreso=False):
 	model, image_processor = init_donut(ckpt, lowreso=lowreso)
 	model.cuda(); model.eval()
 
 	if not attack:
 		if dset == 'pfl':
 			im_ext = '.jpg'
-			vqa_data = np.load(os.path.join(data_dir, 'pfl_test.npy'), allow_pickle=True)[1:]
+			vqa_data = np.load(os.path.join(data_dir, 'test', 'red_test.npy'), allow_pickle=True)[1:]
 		elif dset == 'docvqa':
-			data_dir, im_ext = '/data/users/vkhanh/due/docvqa', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)
 		elif dset == 'docvqav0':
-			data_dir, im_ext = '/data/shared/docvqav0', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)[1:]
 	else:
-		pilot_or_full = data_dir if seed is None  else os.path.join(data_dir, f'pilot/seed{seed}')
 		if dset == 'pfl':
 			im_ext = '.jpg'
 			vqa_data = np.load(os.path.join(data_dir, f'pfl_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
+			else:
+				data_dict = json.load(open(os.path.join(data_dir, f'pfl_{attack}.json'), 'r'))
 		elif 'docvqa' in dset:
 			im_ext = '.png'
-			vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'{dset}_{attack}.json'), 'r'))
+			else:
+				vqa_data = np.load(os.path.join(data_dir, f'pilot/seed{seed}', f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
 
 	score_dict = dict()
 	for _ind, _record in tqdm(enumerate(vqa_data)):
@@ -547,30 +557,36 @@ def pix2struct_eval(model, batch, processor, return_probs=False):
 		return preds, probs.tolist()
 	return preds
 
-def pix2struct_inference(ckpt, data_dir, seed=None, dset='docvqav0', attack=None, question_type='v0'):
+def pix2struct_inference(ckpt, data_dir, seed=None, dset='docvqa', attack=None, question_type='v0'):
 	model, processor = init_pix2struct(ckpt)
 	model.cuda(); model.eval()
 
 	if not attack:
 		if dset == 'pfl':
 			im_ext = '.jpg'
-			vqa_data = np.load(os.path.join(data_dir, 'pfl_test.npy'), allow_pickle=True)[1:]
+			vqa_data = np.load(os.path.join(data_dir, 'test', 'red_test.npy'), allow_pickle=True)[1:]
 		elif dset == 'docvqa':
-			data_dir, im_ext = '/data/users/vkhanh/due/docvqa', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)
 		elif dset == 'docvqav0':
-			data_dir, im_ext = '/data/shared/docvqav0', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)[1:]
 	else:
-		pilot_or_full = data_dir if seed is None  else os.path.join(data_dir, f'pilot/seed{seed}')
 		if dset == 'pfl':
 			im_ext = '.jpg'
 			vqa_data = np.load(os.path.join(data_dir, f'pfl_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
+			else:
+				data_dict = json.load(open(os.path.join(data_dir, f'pfl_{attack}.json'), 'r'))
 		elif 'docvqa' in dset:
 			im_ext = '.png'
-			vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'{dset}_{attack}.json'), 'r'))
+			else:
+				vqa_data = np.load(os.path.join(data_dir, f'pilot/seed{seed}', f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
 
 	score_dict = dict()
 	for _ind, _record in tqdm(enumerate(vqa_data)):
@@ -666,30 +682,36 @@ def udop_eval(model, batch, processor, return_probs=False):
 		return preds, probs.tolist()
 	return preds
 
-def udop_inference(ckpt, data_dir, seed=None, dset='docvqa', attack=None, question_type='v0'):
+def udop_inference(ckpt, data_dir, seed=None, dset='docvqav0', attack=None, question_type='v0'):
 	model, processor = init_udop(ckpt)
 	model.cuda(); model.eval()
 
 	if not attack:
-		if dset == 'pfl':
+		if 'pfl' in dset:
 			im_ext = '.jpg'
-			vqa_data = np.load(os.path.join(data_dir, 'pfl_test.npy'), allow_pickle=True)[1:]
+			vqa_data = np.load(os.path.join(data_dir, 'test', 'pfl_test.npy'), allow_pickle=True)[1:]
 		elif dset == 'docvqa':
-			data_dir, im_ext = '/data/users/vkhanh/due/docvqa', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)
 		elif dset == 'docvqav0':
-			data_dir, im_ext = '/data/shared/docvqav0', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)[1:]
 	else:
-		pilot_or_full = data_dir if seed is None  else os.path.join(data_dir, f'pilot/seed{seed}')
 		if dset == 'pfl':
 			im_ext = '.jpg'
 			vqa_data = np.load(os.path.join(data_dir, f'pfl_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
+			else:
+				data_dict = json.load(open(os.path.join(data_dir, f'pfl_{attack}.json'), 'r'))
 		elif 'docvqa' in dset:
 			im_ext = '.png'
-			vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'{dset}_{attack}.json'), 'r'))
+			else:
+				vqa_data = np.load(os.path.join(data_dir, f'pilot/seed{seed}', f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
 
 	score_dict = dict(); skip = 0
 	for _ind, _record in tqdm(enumerate(vqa_data)):
@@ -803,25 +825,31 @@ def layoutlmv3_inference(ckpt, data_dir, seed=None, dset='docvqav0', attack=None
 	model.cuda(); model.eval()
 
 	if not attack:
-		if dset == 'pfl':
+		if 'pfl' in dset:
 			im_ext = '.jpg'
-			vqa_data = np.load(os.path.join(data_dir, 'pfl_test.npy'), allow_pickle=True)[1:]
+			vqa_data = np.load(os.path.join(data_dir, 'test', 'pfl_test.npy'), allow_pickle=True)[1:]
 		elif dset == 'docvqa':
-			data_dir, im_ext = '/data/users/vkhanh/due/docvqa', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)
 		elif dset == 'docvqav0':
-			data_dir, im_ext = '/data/shared/docvqav0', '.png'
+			im_ext = '.png'
 			vqa_data = np.load(os.path.join(data_dir, 'test', 'vqa.npy'), allow_pickle=True)[1:]
 	else:
-		pilot_or_full = data_dir if seed is None  else os.path.join(data_dir, f'pilot/seed{seed}')
 		if dset == 'pfl':
 			im_ext = '.jpg'
 			vqa_data = np.load(os.path.join(data_dir, f'pfl_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
+			else:
+				data_dict = json.load(open(os.path.join(data_dir, f'pfl_{attack}.json'), 'r'))
 		elif 'docvqa' in dset:
 			im_ext = '.png'
-			vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
-			data_dict = json.load(open(os.path.join(pilot_or_full, f'pilot300_{attack}_{question_type}.json'), 'r'))
+			if seed is None:
+				vqa_data = np.load(os.path.join(data_dir, f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'{dset}_{attack}.json'), 'r'))
+			else:
+				vqa_data = np.load(os.path.join(data_dir, f'pilot/seed{seed}', f'{dset}_{attack}.npy'), allow_pickle=True)
+				data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pilot300_{attack}_{question_type}.json'), 'r'))
 
 	score_dict = dict()
 	for _ind, _record in tqdm(enumerate(vqa_data)):

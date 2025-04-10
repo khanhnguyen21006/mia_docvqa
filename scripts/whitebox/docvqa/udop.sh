@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# donut as whitebox
-declmh=decoder.model.decoder.embed_tokens
-lastdecblkfc1=decoder.model.decoder.layers.3.fc1
-lastdecblkfc2=decoder.model.decoder.layers.3.fc2
+# udop as whitebox
+declmh=shared
+lastdecblkfc1=decoder.block.23.layer.2.DenseReluDense.wi
+lastdecblkfc2=decoder.block.23.layer.2.DenseReluDense.wo
 
-model=donut
-ckpt=naver-clova-ix/donut-base-finetuned-docvqa
+model=udop
+ckpt=/path/to/docvqav0/checkpoint
 
-dataset=docvqa
-data_root=/data/users/vkhanh/mia_docvqa/data  # /path/to/DATA_ROOT
+dataset=docvqav0
+data_root=./data  # change to DATA_ROOT
 data_dir="${data_root}/${dataset}"
 pilot=300  # 0 if use all data
 
-bl=donut_docvqa_bl
-fl=donut_docvqa_fl
-fl_lora=donut_docvqa_fl_lora
-ig=donut_docvqa_ig
+bl=udop_docvqa_bl
+fl=udop_docvqav0_fl
+fl_lora=udop_docvqav0_fl_lora
+ig=udop_docvqav0_ig
 
 fl_alpha=0.001
-fl_tau=(12.0 8.0 1.0)
+fl_tau=(1e-4 1e-5 1e-6)
 fl_lora_alpha=0.001
-fl_lora_tau=(6.0 5.0 4.0)
-ig_alpha=(0.001)
-ig_tau=(5.0 4.0 3.0 2.0)
+fl_lora_tau=(1e-4 1e-5 1e-6)
+ig_alpha=(20.0 10.0)
+ig_tau=(0.75 0.5 0.25 0.1)                           
 
 rand_seed=($((1 + RANDOM % 2000)))
 echo "Random seed: $rand_seed"
@@ -38,7 +38,7 @@ do
                   --seed $seed
       fi
 
-      echo "============ Baseline:"
+      echo "============ Baselines:"
       python run_white_box.py \
                   --attack bl \
                   --model $model \
@@ -88,6 +88,18 @@ do
       do
             for tau in ${ig_tau[@]}
             do
+                  if [ "$alpha" == 10.0 ] && [ "$tau" == 0.25 ]; then
+                    continue
+                  fi
+                  if [ "$alpha" == 10.0 ] && [ "$tau" == 0.1 ]; then
+                    continue
+                  fi
+                  if [ "$alpha" == 20.0 ] && [ "$tau" == 0.75 ]; then
+                    continue
+                  fi
+                  if [ "$alpha" == 20.0 ] && [ "$tau" == 0.5 ]; then
+                    continue
+                  fi
                   python run_white_box.py \
                         --attack ig \
                         --model $model \

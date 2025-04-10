@@ -27,12 +27,14 @@ def get_start_end(encoding, context, answers, processor):
 	return start_idxs, end_idxs
 
 def load_data(data_dir, pilot, seed, question='v0'):
-	if'pfl' in data_dir:
+	dset = os.path.basename(os.path.normpath(data_dir))
+	assert dset in ['docvqa', 'docvqav0', 'pfl'], ValueError(f"Invalid dataset: {dset}.")
+	if'pfl' == dset:
 		return load_data_pfl(data_dir, pilot, seed, question)
-	elif 'docvqav0' in data_dir:
+	elif 'docvqav0' == dset:
 		# This is the offifcial DocVQA
 		return load_data_docvqa(data_dir, pilot, seed, question, ver='v0')
-	elif 'docvqa' in data_dir:
+	elif 'docvqa' == dset:
 		# By default we use DocVQA data from DUE
 		return load_data_docvqa(data_dir, pilot, seed, question)
 	else:
@@ -43,7 +45,7 @@ def load_data_pfl(data_dir, pilot, seed, question='v0'):
 	data_dict = json.load(open(os.path.join(data_dir, 'pfl_mia.json'), 'r'))
 
 	if pilot:
-		data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', f'pfl_mia.json'), 'r'))
+		data_dict = json.load(open(os.path.join(data_dir, f'pilot/seed{seed}', 'pfl_mia.json'), 'r'))
 		data_dict = create_pilot(data_dir, data_dict, seed, question)
 	return data_dict, DOCVQA_DATA
 	
@@ -203,14 +205,15 @@ class BaseDataset(Dataset):
 class MIDataset(BaseDataset):
 	def __init__(self, all_data, data_dict, data_dir, question='v0', outputs=None):
 		self.data_dir = data_dir
-		self.imext = '.png' if 'docvqa' in data_dir else '.jpg'
+		dset = os.path.basename(os.path.normpath(data_dir))
+		self.imext = '.png' if 'docvqa' in dset else '.jpg'
 		self.all_data = all_data
 		self.data_dict = data_dict
 		self.docs, self.inds, self.answers, self.questions = [], [], [], []
 		for _d in data_dict:
 			in_key = 'sampled_indices' if 'sampled_indices' in data_dict[_d] else 'indices'
 			for _ind in data_dict[_d][in_key]:
-				doc_id = all_data[_ind]['image_name'] if 'docvqa' in data_dir else all_data[_ind]['image_name'].split('_')[0]
+				doc_id = all_data[_ind]['image_name'] if 'docvqa' in dset else all_data[_ind]['image_name'].split('_')[0]
 				assert doc_id == _d
 				self.docs += [doc_id]; self.inds += [_ind]
 				if outputs:
@@ -253,17 +256,20 @@ class MIDataset(BaseDataset):
 class FTDataset(BaseDataset):
 	def __init__(self, data_dir, split):
 		self.data_dir = data_dir
+		self.dset = os.path.basename(os.path.normpath(data_dir))
 		self.split = split
-		if 'pfl' in data_dir.lower():
+		assert self.dset in ['docvqa', 'docvqav0', 'pfl'], ValueError(f"Invalid dataset: {dset}.")
+		if 'pfl' in self.dset.lower():
 			self.imext = '.jpg'
-			self.all_data = np.load(os.path.join(self.data_dir, f"imdb/1.0centralized/imdb_{self.split}.npy"), allow_pickle=True)
-			self.image_dir = os.path.join(self.data_dir, "images/full")
-		elif 'docvqa' in data_dir.lower():
+			split_npy_path = os.path.join(self.data_dir, self.split,
+				f"blue_{self.split}.npy" if self.split in ['train', 'val'] else f"red_{self.split}.npy")
+			self.all_data = np.load(split_npy_path, allow_pickle=True)
+		elif 'docvqa' in self.dset.lower():
 			self.imext = '.png'
 			self.all_data = np.load(os.path.join(self.data_dir, self.split, "vqa.npy"), allow_pickle=True)
-			self.image_dir = os.path.join(self.data_dir, "images")
 		else:
 			raise ValueError(f"Invalid data: {data_dir}.")
+		self.image_dir = os.path.join(self.data_dir, "images")
 
 		if 'image_name' not in self.all_data[0]:
 			self.all_data = self.all_data[1:]  # Ignore header line
@@ -290,6 +296,6 @@ class FTDataset(BaseDataset):
 			'all_answers': record['answers'],
 			'words': words,
 			'boxes': boxes,
-			'document_ids': record['image_name'] if 'docvqa' in self.data_dir else record['image_name'].split('_')[0]
+			'document_ids': record['image_name'] if 'docvqa' in self.dset.lower() else record['image_name'].split('_')[0]
 		}
 		return ret

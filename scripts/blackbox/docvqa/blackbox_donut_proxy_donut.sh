@@ -1,22 +1,26 @@
 #!/bin/bash
 
-# donut as whitebox
+# Donut as blackbox
+model=donut
+ckpt=naver-clova-ix/donut-base-finetuned-docvqa
+
+# Donut as proxy
+proxy=donut
+proxy_ckpt=naver-clova-ix/donut-base
+proxy_save_name=proxy_donut
+
+dataset=docvqa
+data_root=./data  # change to DATA_ROOT
+data_dir="${data_root}/${dataset}"
+pilot=300  # 0 if use all data
+
 declmh=decoder.model.decoder.embed_tokens
 lastdecblkfc1=decoder.model.decoder.layers.3.fc1
 lastdecblkfc2=decoder.model.decoder.layers.3.fc2
 
-model=donut
-ckpt=naver-clova-ix/donut-base-finetuned-docvqa
-
-dataset=docvqa
-data_root=/data/users/vkhanh/mia_docvqa/data  # /path/to/DATA_ROOT
-data_dir="${data_root}/${dataset}"
-pilot=300  # 0 if use all data
-
-bl=donut_docvqa_bl
-fl=donut_docvqa_fl
-fl_lora=donut_docvqa_fl_lora
-ig=donut_docvqa_ig
+ig=blackbox_donut_proxy_donut_ig
+fl=blackbox_donut_proxy_donut_fl
+fl_lora=blackbox_donut_proxy_donut_fl_lora
 
 fl_alpha=0.001
 fl_tau=(12.0 8.0 1.0)
@@ -25,7 +29,7 @@ fl_lora_tau=(6.0 5.0 4.0)
 ig_alpha=(0.001)
 ig_tau=(5.0 4.0 3.0 2.0)
 
-rand_seed=($((1 + RANDOM % 2000)))
+rand_seed=($((1 + RANDOM % 1000)))
 echo "Random seed: $rand_seed"
 
 for seed in ${rand_seed[@]}
@@ -36,26 +40,34 @@ do
                   --dataset $dataset \
                   --pilot $pilot \
                   --seed $seed
+            proxy_save_dir="./save/blackbox/${model}/${dataset}/pilot/seed${seed}/${proxy_save_name}_checkpoints"
+      else
+            proxy_save_dir="./save/blackbox/${model}/${dataset}/${proxy_save_name}_checkpoints"
       fi
 
-      echo "============ Baseline:"
-      python run_white_box.py \
-                  --attack bl \
-                  --model $model \
-                  --ckpt $ckpt \
-                  --data_dir $data_dir \
-                  --pilot $pilot \
-                  --expt $bl \
-                  --seed $seed
+      echo "============ Blackbox Donut: Train Proxy Donut ($proxy_save_dir)"
+      python run_black_box.py \
+            --model $model \
+            --ckpt $ckpt \
+            --proxy $proxy \
+            --proxy_ckpt $proxy_ckpt \
+            --data_dir $data_dir \
+            --pilot $pilot \
+            --num_epoch 128 \
+            --batch_size 4 \
+            --lr 1e-5 \
+            --save_dir $proxy_save_dir \
+            --save_name $proxy_save_name \
+            --seed $seed
 
-      echo "============ Method: FL"
+      echo "============ Proxy MIA: FL"
       for tau in ${fl_tau[@]}
       do
             python run_white_box.py \
                   --attack fl \
                   --layer $lastdecblkfc2 \
-                  --model $model \
-                  --ckpt $ckpt \
+                  --model $proxy \
+                  --ckpt "${proxy_save_dir}/last.ckpt/" \
                   --data_dir $data_dir \
                   --pilot $pilot \
                   --step_size $fl_alpha \
@@ -65,14 +77,14 @@ do
                   --seed $seed
       done
 
-      echo "============ Method: FL_lora"
+      echo "============ Proxy MIA: FL_lora"
       for tau in ${fl_lora_tau[@]}
       do
             python run_white_box.py \
                   --attack fl \
                   --layer $lastdecblkfc2 \
-                  --model $model \
-                  --ckpt $ckpt \
+                  --model $proxy \
+                  --ckpt "${proxy_save_dir}/last.ckpt/" \
                   --data_dir $data_dir \
                   --pilot $pilot \
                   --step_size $fl_lora_alpha \
@@ -83,7 +95,7 @@ do
                   --seed $seed
       done
 
-      echo "============ Method: IG"
+      echo "============ Proxy MIA: IG"
       for alpha in ${ig_alpha[@]}
       do
             for tau in ${ig_tau[@]}

@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# donut as whitebox
-declmh=decoder.model.decoder.embed_tokens
-lastdecblkfc1=decoder.model.decoder.layers.3.fc1
-lastdecblkfc2=decoder.model.decoder.layers.3.fc2
+# VT5 as whitebox
+declmh=language_backbone.lm_head
+lastdecblkfc1=language_backbone.decoder.block.11.layer.2.DenseReluDense.wi
+lastdecblkfc2=language_backbone.decoder.block.11.layer.2.DenseReluDense.wo
 
-model=donut
-ckpt=naver-clova-ix/donut-base-finetuned-docvqa
+model=vt5
+ckpt=rubentito/vt5-base-spdocvqa
 
-dataset=docvqa
-data_root=/data/users/vkhanh/mia_docvqa/data  # /path/to/DATA_ROOT
+dataset=docvqav0
+data_root=./data  # /path/to/DATA_ROOT
 data_dir="${data_root}/${dataset}"
 pilot=300  # 0 if use all data
 
-bl=donut_docvqa_bl
-fl=donut_docvqa_fl
-fl_lora=donut_docvqa_fl_lora
-ig=donut_docvqa_ig
+bl=vt5_docvqa_bl
+fl=vt5_docvqa_fl
+fl_lora=vt5_docvqav0_fl_lora
+ig=vt5_docvqa_ig
 
 fl_alpha=0.001
-fl_tau=(12.0 8.0 1.0)
+fl_tau=(1e-4 1e-5 1e-6)
 fl_lora_alpha=0.001
-fl_lora_tau=(6.0 5.0 4.0)
-ig_alpha=(0.001)
-ig_tau=(5.0 4.0 3.0 2.0)
+fl_lora_tau=(1e-4 1e-5 1e-6)
+ig_alpha=(1.0 0.001)
+ig_tau=(1e-5 5e-6)
 
 rand_seed=($((1 + RANDOM % 2000)))
 echo "Random seed: $rand_seed"

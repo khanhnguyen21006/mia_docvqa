@@ -321,7 +321,7 @@ def dp_donut(args):
 	donut_inference(os.path.join(SAVE_DIR, "last.ckpt"), data_dir='data/docvqa/', dset='docvqa', lowreso=True)
 
 def dp_vt5(args):
-	pass
+	raise NotImplementedError
 
 def parse_args():
 	parser = argparse.ArgumentParser(description='script to train')
@@ -336,10 +336,10 @@ def parse_args():
 	parser.add_argument('--warmup_steps', type=int, default=1000, help='num. warmup steps.')
 	parser.add_argument('--max_steps', type=int, default=20000, help='max steps.')
 
+	parser.add_argument('--dp', default=False, action='store_true', help='group-level DP.')
 	parser.add_argument('--sensitivity', type=float, default=1.5, help='sensitivity.')
 	parser.add_argument('--noise_multiplier', type=float, default=1.0, help='noise multiplier.')
 	parser.add_argument('--mini_batch_size', type=int, default=2, help='batch size.')
-	parser.add_argument('--dp', default=False, action='store_true', help='differential privacy.')
 
 	parser.add_argument('--empty_cache', default=False, action='store_true', help='empty cuda cache.')
 	parser.add_argument('--seed', type=int, default=1027, help='random seed.')

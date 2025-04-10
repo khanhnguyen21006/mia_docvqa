@@ -28,14 +28,8 @@ def parse_args():
 	return args
 
 def query_blackbox(model, ckpt, data_dir, pilot, seed, question='v0'):
-	if 'docvqav0' in data_dir:
-		dset = 'docvqav0'
-	elif 'docvqa' in data_dir:
-		dset = 'docvqa'
-	elif 'pfl' in data_dir:
-		dset = 'pfl'
-	else:
-		raise ValueError(f"Invalid dataset: {dset}.")
+	dset = os.path.basename(os.path.normpath(data_dir))
+	assert dset in ['docvqa', 'docvqav0', 'pfl'], ValueError(f"Invalid dataset: {dset}.")
 
 	output_dir = os.path.join(BLACKBOX_OUTPUT, model, dset, f'pilot/seed{seed}' if pilot > 0 else '')
 	os.makedirs(output_dir, exist_ok=True)

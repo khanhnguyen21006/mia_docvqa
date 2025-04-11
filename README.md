@@ -7,9 +7,9 @@ This is the code repository of the paper: "DocMIA: Document-Level Membership Inf
 
 ## Abstract
 Document Visual Question Answering (DocVQA) has introduced a new paradigm for end-to-end document understanding, and quickly became one of the standard benchmarks for multimodal LLMs. Automating document processing workflows, driven by DocVQA models, presents significant potential for many business sectors. However, documents tend to contain highly sensitive information, raising concerns about privacy risks associated with training such DocVQA models. One significant privacy vulnerability, exploited by the membership inference attack, is the possibility for an adversary to determine if a particular record was part of the model's training data. In this paper, we introduce two novel membership inference attacks tailored specifically to DocVQA models. These attacks are designed for two different adversarial scenarios: a white-box setting, where the attacker has full access to the model architecture and parameters, and a black-box setting, where only the model's outputs are available. Notably, our attacks assume the adversary lacks access to auxiliary datasets, which is more realistic in practice but also more challenging. Our unsupervised methods outperform existing state-of-the-art membership inference attacks across a variety of DocVQA models and datasets, demonstrating their effectiveness and highlighting the privacy risks in this domain.
-
-<img src="assets/DocMIA.png" width="700"/>
-
+<p align="center">
+    <img src="assets/DocMIA_thumbnail.png" width="700"/>
+</p>
 
 ## Quick Start
 - **Get code**
@@ -33,7 +33,7 @@ pip install --no-deps git+https://github.com/huggingface/peft@894e68a
 
 We use two DocVQA datasets: [DocVQA](https://rrc.cvc.uab.es/?ch=17) (Single Page) and [PFL-DocVQA](https://benchmarks.elsa-ai.eu/?ch=2). Please:
 
-1. Follow the instructions on the official websites to download the data. Only the images are required for this repo.
+1. Follow the instructions on the official websites to download the data. Only *images* are required for this repo.
 2. Maintain the folder structure for each dataset (named in lowercase) as followed:
 ```bash
 └── DATA_ROOT
@@ -98,9 +98,9 @@ Run `python train.py -h` for the arguments and descriptions.
 ### TODO
 - [ ] upload `imdb` data & PFL checkpoints
 - [ ] DP train code
-- [ ] update README
 
-## BibTeX
+## Citation
+Please feel free to contact knguyen@cvc.uab.cat if you have any questions.
 ```bibtex
 @inproceedings{
 	nguyen2025docmia,

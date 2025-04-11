@@ -206,10 +206,8 @@ def create_df(all_result, aggs=['avg']):
 				df_data[_col].append(_v[_col])
 	return pd.DataFrame(data=df_data)
 
-def create_pilot(data_dir, data, seed, ver, nmax=300):
-	if ver == None:
-		return data
-	_path = os.path.join(data_dir, f'pilot/seed{seed}', f'pilot{nmax}_mia_{ver}.json')
+def create_pilot(data_dir, data, seed, question, nmax=300):
+	_path = os.path.join(data_dir, f'pilot/seed{seed}', f'pilot{nmax}_mia_{question}.json')
 	if os.path.exists(_path): pilot = json.load(open(_path, 'r'));
 	else:
 		pilot, np, nn = dict(), 0, 0
@@ -290,42 +288,3 @@ def save_result(save_dir, name, result):
 	with open(os.path.join(save_dir, f"{name}.pkl"), 'wb') as f:
 		pickle.dump({"result": result}, f)
 	return result
-
-def plot_roc_multi(labels, ranks, legends, title, name, alphas=None, ext='png'):
-	save_path = os.path.join('save/figures', f"roc_curve_{name}.{ext}")
-	if alphas == None:
-		alphas = [1.0] * len(labels)
-	for _i, (_y, _rank, _legend, _alpha) in enumerate(zip(labels, ranks, legends, alphas)):
-		# TPR/FPR
-		fpr, tpr, _ = metrics.roc_curve(_y, _rank)
-		tpr_fpr001 = tpr[np.where(fpr<.01)[0][-1]]
-		tpr_fpr003 = tpr[np.where(fpr<.03)[0][-1]]
-		tpr_fpr005 = tpr[np.where(fpr<.05)[0][-1]]
-
-		# Balanced Accuracy
-		bal_acc = 1 - (fpr+(1-tpr))/2
-
-		# F1 Score
-		n_pos = n_neg = len(_rank) // 2
-		tp = tpr * n_pos; fn = n_pos - tp
-		tn = (1 - fpr) * n_neg; fp = n_neg - tn
-		pre = tp / (tp + fp); rec = tp / (tp + fn)
-		f1 = (2 * pre * rec) / (pre + rec)
-
-		print(f"MIA Results: {_legend}")
-		print(f"{'TPR@FPR=0.01':>25} = {tpr_fpr001*100:.2f}")
-		print(f"{'TPR@FPR=0.03':>25} = {tpr_fpr003*100:.2f}")
-		print(f"{'TPR@FPR=0.05':>25} = {tpr_fpr005*100:.2f}")
-		print(f"{'AUC':>25} = {metrics.auc(fpr, tpr)*100:.2f}")
-		print(f"{'(MAX) Balanced Accuracy':>25} = {np.max(bal_acc)*100:.2f}")
-		print(f"{'(MAX) F1':>25} = {f1[np.argmax(bal_acc)]*100:.2f}")
-
-		if _i == 0:
-			plt.plot(fpr, fpr, '--', color='gray', label="Chance level")
-		plt.plot(fpr, tpr, label=f"{legends[_i]}(AUC={metrics.auc(fpr, tpr)*100:.2f})", alpha=_alpha)
-
-	plt.grid(); plt.xlabel('False Positive Rate'); plt.ylabel('True Positive Rate')
-	plt.xlim(5e-3, 1); plt.ylim(5e-3, 1); plt.semilogx(); plt.semilogy()
-	plt.title(title, fontweight='bold'); plt.legend(loc='lower right', fontsize=8)
-	plt.tight_layout(); plt.savefig(save_path, bbox_inches='tight')
-	print(f"Saved figure to: {save_path}")

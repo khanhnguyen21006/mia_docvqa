@@ -88,18 +88,18 @@ elif args.dataset == 'pfl':
 		print(f"PATH {pilot_path} EXISTED!")
 	else:
 		PFL_INs = random.sample([_d for _d in document_dict.keys() if document_dict[_d]['label'] == 1], pilot)
-	PFL_OUTs = random.sample([_d for _d in document_dict.keys() if document_dict[_d]['label'] == 0], pilot)
-	print(f"PFL pilot (members/non-members): {len(PFL_INs)}/{len(PFL_OUTs)}")
-	print(f"5 members: {PFL_INs[:5]}")
-	print(f"5 non-members: {PFL_OUTs[:5]}")
+		PFL_OUTs = random.sample([_d for _d in document_dict.keys() if document_dict[_d]['label'] == 0], pilot)
+		print(f"PFL pilot (members/non-members): {len(PFL_INs)}/{len(PFL_OUTs)}")
+		print(f"5 members: {PFL_INs[:5]}")
+		print(f"5 non-members: {PFL_OUTs[:5]}")
 
-	pilot_document_dict = {_d:document_dict[_d] for _d in (PFL_INs+PFL_OUTs)}
-	for _d in PFL_INs+PFL_OUTs:
-		_d_data = []
-		for _ind in pilot_document_dict[_d]['indices']:
-			_d_data += [pfl_mia_npy[_ind]]
-		pilot_document_dict[_d]['count'] = len(_d_data)
+		pilot_document_dict = {_d:document_dict[_d] for _d in (PFL_INs+PFL_OUTs)}
+		for _d in PFL_INs+PFL_OUTs:
+			_d_data = []
+			for _ind in pilot_document_dict[_d]['indices']:
+				_d_data += [pfl_mia_npy[_ind]]
+			pilot_document_dict[_d]['count'] = len(_d_data)
 
-	with open(pilot_path, 'w') as f:
-		json.dump(pilot_document_dict, f)
-	print(f"Pilot SAVED to: {pilot_path}!")
+		with open(pilot_path, 'w') as f:
+			json.dump(pilot_document_dict, f)
+		print(f"Pilot SAVED to: {pilot_path}!")

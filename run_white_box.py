@@ -277,10 +277,6 @@ def run_finetunelayer(args, start_model=None, **kwargs):
 			"label":_ddict['label'],
 			"indices": _ddict['sampled_indices'],
 		})
-		print(f"iter {_it}, data={_d}, num.query={len(_ddict['sampled_indices'])}/{len(_ddict['indices'])}," +\
-			f" (label,grad(avg),step(avg))=({_ddict['label']},{np.mean(data_logs[_d]['update'])},{np.mean(data_logs[_d]['step'])}), "
-			 # +\ f"time {np.sum(data_logs[_d]['time'])}s."
-			)
 
 	expt_dir = os.path.join(args.result_dir, expt)
 	expt_cfg = f"seed{args.seed}_{layer.replace('.', '_')}{f'_lora' if args.lora else ''}_alpha{str(args.step_size).replace('.','')}_tau{str(args.threshold).replace('.','')}_T{str(args.max_step)}"
@@ -374,10 +370,6 @@ def run_inputgradient(args, start_model=None, **kwargs):
 			"label":_ddict['label'],
 			"indices": _ddict['sampled_indices'],
 		})
-		print(f"iter {_it}, data={_d}, num.query={len(_ddict['sampled_indices'])}/{len(_ddict['indices'])}," +\
-			f" (label,grad(avg),step(avg))=({_ddict['label']},{np.mean(data_logs[_d]['update'])},{np.mean(data_logs[_d]['step'])}), "
-			 # +\ f"time {np.sum(data_logs[_d]['time'])}s."
-			)
 
 	expt_dir = os.path.join(args.result_dir, expt)
 	expt_cfg = f"seed{args.seed}_alpha{str(args.step_size).replace('.','')}_tau{str(args.threshold).replace('.','')}_T{str(args.max_step)}"

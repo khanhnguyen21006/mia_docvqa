@@ -22,9 +22,9 @@ cd mia_docvqa
 
 This code works in our local environment with `CUDA 11.3` and `NVIDIA A40/L40S GPUs`.
 ```shell
-conda create -n docmia python=3.9.13
+conda create -n docmia python=3.9.13 -y
 conda activate docmia
-conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -c pytorch
+conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -c pytorch -y
 pip install -r requirements.txt
 pip install --no-deps git+https://github.com/huggingface/peft@894e68a
 ```
@@ -96,11 +96,14 @@ To fine-tune a model, run:
 
 To fine-tune with *group-level* DP, we suggest setting up a separate environment with a newer version of pytorch as follows:
 ```shell
-conda create -n docmia_dp python=3.10
+conda deactivate
+conda create -n docmia_dp python=3.10 -y
 conda activate docmia_dp
-conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
-pip install -r requirements.txt
+conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia -y
+conda install numpy scipy scikit-learn pandas matplotlib seaborn cython numba -c conda-forge -y
 pip install --no-deps git+https://github.com/huggingface/peft@894e68a
+pip install numpy==1.24.3 transformers==4.40.1 accelerate==0.27.2 sentencepiece==0.1.96 protobuf==4.25.2 editdistance==0.6.0 tqdm
+
 ```
 Then run:
 ```shell

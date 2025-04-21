@@ -35,6 +35,13 @@ class DonutClass(torch.nn.Module):
 		)
 		return out
 
+class VT5Class(torch.nn.Module):
+	def __init__(self, ckpt):
+		super(VT5Class, self).__init__()
+
+	def forward(self,):
+		pass
+
 def save_dp_model(save_dir, model_name, model):
 	if model_name == 'donut':
 		model.model.save_pretrained(os.path.join(save_dir, "last.ckpt"))
@@ -42,121 +49,7 @@ def save_dp_model(save_dir, model_name, model):
 	else:
 		raise ValueError(f"Invalid model: {model_name}.")
 
-def finetune(args):
-	save_dir = os.path.join('checkpoints/', args.model, args.expt+f'_seed{args.seed}')
-	os.makedirs(save_dir, exist_ok=True)
-
-	# Model/Optimizer
-	model, _, forward_fn, eval_fn, processor = load_model(args.model, args.ckpt, run_eval=True)
-	model = cuda_and_maybe_copy(model, args.model)
-	optimizer, scheduler = get_optimizer(
-		args.model, model, args.learning_rate, finetune=True,
-		weight_decay=args.weight_decay, warmup_steps=args.warmup_steps, max_steps=args.max_steps
-	)
-
-	# Dataset/Dataloader
-	train_ds, val_ds = FTDataset(args.data_dir, 'train'), FTDataset(args.data_dir, 'val')
-	if args.model == 'vt5':
-		collate_fn = partial(train_ds.collate_fn, model_name=args.model, model=model)
-	elif args.model in ['donut', 'pix2struct', 'pix2struct-large', 'layoutlmv3', 'layoutlmv3-large', 'udop']:
-		collate_fn = partial(train_ds.collate_fn, model_name=args.model, processor=processor)
-	else:
-		raise ValueError(f"Invalid model: {args.model}.")
-	train_dl = DataLoader(
-		dataset=train_ds,
-		batch_size=args.batch_size,
-		shuffle=True,
-		collate_fn=collate_fn,
-		num_workers=8, # 8
-		pin_memory=True,
-	)
-	val_dl = DataLoader(
-		dataset=val_ds,
-		batch_size=16,
-		shuffle=False,
-		collate_fn=collate_fn,
-		num_workers=8,
-		pin_memory=True,
-	)
-	print(
-		'>'*5 + f"TRAIN/VAL dataset: {len(train_ds)}/{len(val_ds)}. "\
-		+ f"Num. TRAIN/VAL steps: {len(train_dl)*args.num_epoch}/{len(val_dl)*args.num_epoch}."
-	)
-	# Train/Evaluate
-	all_info, max_score = dict({
-		'batch_size': args.batch_size, 'iteration': 0, 'loss':[],
-		'accuracy':[], 'anls':[], 'val_accuracy':[], 'val_anls':[]
-	}), -np.inf
-	for _epoch in range(args.num_epoch):
-		train_loss, train_acc, train_anls = [], [], []
-		for _i, _batch in enumerate(train_dl):
-			ts = datetime.datetime.now()
-			for _k in _batch:
-				if _k == 'images':
-					for __k in _batch[_k]:
-						_batch[_k][__k] = _batch[_k][__k].cuda()
-				elif isinstance(_batch[_k], torch.Tensor):
-					_batch[_k] = _batch[_k].cuda()
-				elif isinstance(_batch[_k], list) and all([isinstance(__k, torch.Tensor) for __k in _batch[_k]]):
-					for __k in range(len(_batch[_k])):
-						_batch[_k][__k] = _batch[_k][__k].cuda()
-
-			out = forward_fn(model, _batch)
-			loss = out.loss
-
-			optimizer.zero_grad()
-			loss.backward()
-			optimizer.step()
-			if scheduler is not None:
-				scheduler.step()
-
-			train_loss += [loss.mean().item()]
-			mess = ""
-			if _i % 20 == 0 or _i == len(train_dl)-1:
-				mess = f"[TRAIN] Epoch[{_epoch}][{_i}] batch loss: {loss.mean().item():.6f}, " +\
-				f"learning rate: {optimizer.param_groups[0]['lr']:.6f}, time: {(datetime.datetime.now() - ts).total_seconds():.2f}s"
-			if _i % 100 == 0:
-				_batch_preds = eval_fn(model, _batch, processor=processor)
-				_batch_acc, _batch_anls = [], []
-				for _a,_p in zip(_batch['answers'], _batch_preds):
-					_batch_acc += [accuracy(_a,_p)]; _batch_anls += [anls(_a,_p)]
-				train_acc += _batch_acc; train_anls += _batch_anls
-				mess += f", ACC: {np.mean(_batch_acc):.4f}, ANLS: {np.mean(_batch_anls):.4f}"
-			if mess != "": print(mess)
-
-		trainscore, trainloss = (sum(train_acc)+sum(train_anls))/(2*len(train_anls)), sum(train_loss)/len(train_dl)
-		print('>'*5 + f" Epoch: {_epoch}, train loss: {trainloss:.4f}, train score: {trainscore:.4f}, learning rate: {optimizer.param_groups[0]['lr']:.6f}.")
-
-		eval_acc, eval_anls, is_best = [], [], False
-		for _batch in tqdm(val_dl, desc=f"eval epoch {_epoch}"):
-			for _k in _batch:
-				if _k == 'images':
-					for __k in _batch[_k]:
-						_batch[_k][__k] = _batch[_k][__k].cuda()
-				elif isinstance(_batch[_k], torch.Tensor):
-					_batch[_k] = _batch[_k].cuda()
-				elif isinstance(_batch[_k], list) and all([isinstance(__k, torch.Tensor) for __k in _batch[_k]]):
-					for __k in range(len(_batch[_k])):
-						_batch[_k][__k] = _batch[_k][__k].cuda()
-			_batch_preds = eval_fn(model, _batch, processor=processor)
-			_batch_acc, _batch_anls = [], []
-			for _a,_p in zip(_batch['answers'], _batch_preds):
-				_batch_acc += [accuracy(_a,_p)]; _batch_anls += [anls(_a,_p)]
-			eval_acc += _batch_acc; eval_anls += _batch_anls
-
-		all_info['epoch'] = _epoch; all_info['iteration'] += len(train_dl)
-		all_info['loss'] += train_loss; all_info['accuracy'] += train_acc; all_info['anls'] += train_anls
-		all_info['val_accuracy'] += eval_acc; all_info['val_anls'] += eval_anls
-
-		val_anls = np.mean(eval_anls)
-		if val_anls > max_score:
-			max_score = val_anls; is_best = True
-		print('>'*5 + f"[VALIDATION] Epoch[{_epoch}] ACC {np.mean(eval_acc):.4f}, ANLS {val_anls:.4f}.\t"\
-			+ ("\tBEST Performance!" if is_best else ""))
-		save_model(save_dir, args.model, model, processor, _epoch, best=is_best)
-		json.dump(all_info, open(os.path.join(save_dir, 'train_info.json'), 'w'))  # save every epoch
-
-def dp_donut(args):
+def dp_finetune_donut(args):
 	from torch.func import functional_call, vmap, grad
 
 	SAVE_DIR = os.path.join('checkpoints/dp', args.model, args.expt+f'_seed={args.seed}')
@@ -320,8 +213,122 @@ def dp_donut(args):
 
 	donut_inference(os.path.join(SAVE_DIR, "last.ckpt"), data_dir='data/docvqa/', dset='docvqa', lowreso=True)
 
-def dp_vt5(args):
+def dp_finetune_vt5(args):
 	raise NotImplementedError
+
+def finetune(args):
+	save_dir = os.path.join('checkpoints/', args.model, args.expt+f'_seed{args.seed}')
+	os.makedirs(save_dir, exist_ok=True)
+
+	# Model/Optimizer
+	model, _, forward_fn, eval_fn, processor = load_model(args.model, args.ckpt, run_eval=True)
+	model = cuda_and_maybe_copy(model, args.model)
+	optimizer, scheduler = get_optimizer(
+		args.model, model, args.learning_rate, finetune=True,
+		weight_decay=args.weight_decay, warmup_steps=args.warmup_steps, max_steps=args.max_steps
+	)
+
+	# Dataset/Dataloader
+	train_ds, val_ds = FTDataset(args.data_dir, 'train'), FTDataset(args.data_dir, 'val')
+	if args.model == 'vt5':
+		collate_fn = partial(train_ds.collate_fn, model_name=args.model, model=model)
+	elif args.model in ['donut', 'pix2struct', 'pix2struct-large', 'layoutlmv3', 'layoutlmv3-large', 'udop']:
+		collate_fn = partial(train_ds.collate_fn, model_name=args.model, processor=processor)
+	else:
+		raise ValueError(f"Invalid model: {args.model}.")
+	train_dl = DataLoader(
+		dataset=train_ds,
+		batch_size=args.batch_size,
+		shuffle=True,
+		collate_fn=collate_fn,
+		num_workers=8, # 8
+		pin_memory=True,
+	)
+	val_dl = DataLoader(
+		dataset=val_ds,
+		batch_size=16,
+		shuffle=False,
+		collate_fn=collate_fn,
+		num_workers=8,
+		pin_memory=True,
+	)
+	print(
+		'>'*5 + f"TRAIN/VAL dataset: {len(train_ds)}/{len(val_ds)}. "\
+		+ f"Num. TRAIN/VAL steps: {len(train_dl)*args.num_epoch}/{len(val_dl)*args.num_epoch}."
+	)
+	# Train/Evaluate
+	all_info, max_score = dict({
+		'batch_size': args.batch_size, 'iteration': 0, 'loss':[],
+		'accuracy':[], 'anls':[], 'val_accuracy':[], 'val_anls':[]
+	}), -np.inf
+	for _epoch in range(args.num_epoch):
+		train_loss, train_acc, train_anls = [], [], []
+		for _i, _batch in enumerate(train_dl):
+			ts = datetime.datetime.now()
+			for _k in _batch:
+				if _k == 'images':
+					for __k in _batch[_k]:
+						_batch[_k][__k] = _batch[_k][__k].cuda()
+				elif isinstance(_batch[_k], torch.Tensor):
+					_batch[_k] = _batch[_k].cuda()
+				elif isinstance(_batch[_k], list) and all([isinstance(__k, torch.Tensor) for __k in _batch[_k]]):
+					for __k in range(len(_batch[_k])):
+						_batch[_k][__k] = _batch[_k][__k].cuda()
+
+			out = forward_fn(model, _batch)
+			loss = out.loss
+
+			optimizer.zero_grad()
+			loss.backward()
+			optimizer.step()
+			if scheduler is not None:
+				scheduler.step()
+
+			train_loss += [loss.mean().item()]
+			mess = ""
+			if _i % 20 == 0 or _i == len(train_dl)-1:
+				mess = f"[TRAIN] Epoch[{_epoch}][{_i}] batch loss: {loss.mean().item():.6f}, " +\
+				f"learning rate: {optimizer.param_groups[0]['lr']:.6f}, time: {(datetime.datetime.now() - ts).total_seconds():.2f}s"
+			if _i % 100 == 0:
+				_batch_preds = eval_fn(model, _batch, processor=processor)
+				_batch_acc, _batch_anls = [], []
+				for _a,_p in zip(_batch['answers'], _batch_preds):
+					_batch_acc += [accuracy(_a,_p)]; _batch_anls += [anls(_a,_p)]
+				train_acc += _batch_acc; train_anls += _batch_anls
+				mess += f", ACC: {np.mean(_batch_acc):.4f}, ANLS: {np.mean(_batch_anls):.4f}"
+			if mess != "": print(mess)
+
+		trainscore, trainloss = (sum(train_acc)+sum(train_anls))/(2*len(train_anls)), sum(train_loss)/len(train_dl)
+		print('>'*5 + f" Epoch: {_epoch}, train loss: {trainloss:.4f}, train score: {trainscore:.4f}, learning rate: {optimizer.param_groups[0]['lr']:.6f}.")
+
+		eval_acc, eval_anls, is_best = [], [], False
+		for _batch in tqdm(val_dl, desc=f"eval epoch {_epoch}"):
+			for _k in _batch:
+				if _k == 'images':
+					for __k in _batch[_k]:
+						_batch[_k][__k] = _batch[_k][__k].cuda()
+				elif isinstance(_batch[_k], torch.Tensor):
+					_batch[_k] = _batch[_k].cuda()
+				elif isinstance(_batch[_k], list) and all([isinstance(__k, torch.Tensor) for __k in _batch[_k]]):
+					for __k in range(len(_batch[_k])):
+						_batch[_k][__k] = _batch[_k][__k].cuda()
+			_batch_preds = eval_fn(model, _batch, processor=processor)
+			_batch_acc, _batch_anls = [], []
+			for _a,_p in zip(_batch['answers'], _batch_preds):
+				_batch_acc += [accuracy(_a,_p)]; _batch_anls += [anls(_a,_p)]
+			eval_acc += _batch_acc; eval_anls += _batch_anls
+
+		all_info['epoch'] = _epoch; all_info['iteration'] += len(train_dl)
+		all_info['loss'] += train_loss; all_info['accuracy'] += train_acc; all_info['anls'] += train_anls
+		all_info['val_accuracy'] += eval_acc; all_info['val_anls'] += eval_anls
+
+		val_anls = np.mean(eval_anls)
+		if val_anls > max_score:
+			max_score = val_anls; is_best = True
+		print('>'*5 + f"[VALIDATION] Epoch[{_epoch}] ACC {np.mean(eval_acc):.4f}, ANLS {val_anls:.4f}.\t"\
+			+ ("\tBEST Performance!" if is_best else ""))
+		save_model(save_dir, args.model, model, processor, _epoch, best=is_best)
+		json.dump(all_info, open(os.path.join(save_dir, 'train_info.json'), 'w'))  # save every epoch
 
 def parse_args():
 	parser = argparse.ArgumentParser(description='script to train')
@@ -360,9 +367,9 @@ def main():
 	if args.dp:
 		assert args.model in ['donut', 'vt5'], f"Invalid model: {args.model}"
 		if args.model == 'donut':
-			dp_donut(args)
+			dp_finetune_donut(args)
 		elif args.model == 'vt5':
-			dp_vt5(args)
+			dp_finetune_vt5(args)
 	else:
 		finetune(args)
 

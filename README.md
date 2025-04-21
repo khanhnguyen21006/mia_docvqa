@@ -59,9 +59,9 @@ Most model checkpoints used in our experiments are hosted on [HuggingFace](https
 | model | checkpoint |
 |------|------|
 | `VT5` | [DocVQA](https://huggingface.co/rubentito/vt5-base-spdocvqa) |
-| `VT5` | [PFL-DocVQA]() |
+| `VT5` | [PFL-DocVQA](https://drive.google.com/drive/folders/1C70wbJJDt9KLkAHKrXzrtbXfU3FUDvk5?usp=sharing) |
 | `Donut` | [DocVQA](https://huggingface.co/naver-clova-ix/donut-base-finetuned-docvqa) |
-| `Donut` | [PFL-DocVQA]() |
+| `Donut` | [PFL-DocVQA](https://drive.google.com/drive/folders/1qDrWnxWigAvMWY5pWX0umFZcoi5lLTMo?usp=sharing) |
 | `Pix2Struct-base` | [DocVQA](https://huggingface.co/google/pix2struct-docvqa-base) |
 | `Pix2Struct-large` | [DocVQA](https://huggingface.co/google/pix2struct-docvqa-large) |
 
@@ -89,15 +89,25 @@ See `scripts/` for more experiments.
 
 - **Finetune model**
 
-To fine-tune a model (optionally with *group-level* DP), run:
+To fine-tune a model, run:
 ```shell
 ./scripts/common/train.sh  # UDOP
 ```
-Run `python train.py -h` for the arguments and descriptions.
 
-### TODO
-- [ ] upload `imdb` data & PFL checkpoints
-- [ ] DP train code
+To fine-tune with *group-level* DP, we suggest setting up a separate environment with a newer version of pytorch as follows:
+```shell
+conda create -n docmia_dp python=3.10
+conda activate docmia_dp
+conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
+pip install -r requirements.txt
+pip install --no-deps git+https://github.com/huggingface/peft@894e68a
+```
+Then run:
+```shell
+./scripts/common/train_dp.sh
+```
+
+Run `python train.py -h` for the arguments and descriptions.
 
 ## Citation
 Please feel free to contact knguyen@cvc.uab.cat if you have any questions.

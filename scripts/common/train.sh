@@ -4,7 +4,7 @@ model=udop
 ckpt=microsoft/udop-large
 
 dataset=docvqav0
-data_root=/data/users/vkhanh/mia_docvqa/data # ./data  # change to DATA_ROOT
+data_root=./data  # change to DATA_ROOT
 data_dir="${data_root}/${dataset}"
 
 batch_size=8
@@ -20,7 +20,7 @@ expt_name=udop_docvqa_200k
 # ckpt=naver-clova-ix/donut-base
 
 # dataset=pfl
-# data_root=/data/users/vkhanh/mia_docvqa/data # ./data  # change to DATA_ROOT
+# data_root=./data  # change to DATA_ROOT
 # data_dir="${data_root}/${dataset}"
 
 # batch_size=6

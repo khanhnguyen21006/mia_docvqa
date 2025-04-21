@@ -1,7 +1,7 @@
 import os, argparse
 import json, random, shutil
 import tarfile, zipfile
-import requests
+import gdown
 from tqdm import tqdm
 from PIL import Image
 import numpy as np
@@ -12,7 +12,7 @@ DOCVQAdue = "docvqa"  # annotations from DUE benchmark
 PFLDOCVQA = "pfl"
 
 parser = argparse.ArgumentParser(description='script to run attack')
-parser.add_argument('--root', type=str, default='/data/users/vkhanh/mia_docvqa/data/', help='data root directory')
+parser.add_argument('--root', type=str, default='./data/', help='data root directory')
 parser.add_argument('--dvqa_out', type=str, default='test', help='DocVQA split to sample non-members')
 parser.add_argument('--pfl_out', type=str, default='test', help='PFL split to sample non-members')
 parser.add_argument('--dvqa_pilot', default=False, action='store_true', help='create DVQA pilot')
@@ -40,7 +40,7 @@ random.seed(args.seed)
 #             └── blue_val.npy
 #         ├── test/
 #             └── red_test.npy
-#         ├── images/ (images.zip)
+#         ├── images/ (images.zip) (+red_images.zip)
 #     └── docvqa
 #         └── train/
 #             └── vqa.npy
@@ -48,25 +48,27 @@ random.seed(args.seed)
 #         ├── test/
 #         ├── images/
 
-def download_file(url, path):
-    response = requests.get(url, stream=True)
-    response.raise_for_status()
-    with open(path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+def gdownload(gdid, path):
+    url = f'https://drive.google.com/uc?id={gdid}'
+    gdown.download(url, path, quiet=False)
+
 
 
 print(f"###################### DOWNLOAD DATA...")
+os.makedirs(args.root, exist_ok=True)
 
 
 
 ###################### DocVQA-v0 ######################
 docvqav0_dir = os.path.join(args.root, DOCVQAv0)
-assert os.path.isdir(docvqav0_dir)
+os.makedirs(docvqav0_dir, exist_ok=True)
 
-# docvqav0_imdb_url = 'docvqa.v0/imdbs.zip'
-# download_file(docvqav0_imdb_url, docvqav0_dir)
-with zipfile.ZipFile(os.path.join(docvqav0_dir, 'imdbs.zip'), 'r') as zref:
+print(f"****** DocVQA-v0 downloading imdbs...")
+docvqav0_imdb_path = os.path.join(docvqav0_dir, 'imdbs.zip')
+docvqav0_imdb_gdid = '1y-DoBaDpe93dZryWmvAAYCufYNJkp63g'
+gdownload(docvqav0_imdb_gdid, docvqav0_imdb_path)
+print(f"****** DocVQA-v0 extracting images...")
+with zipfile.ZipFile(docvqav0_imdb_path, 'r') as zref:
     zref.extractall(docvqav0_dir)
 with tarfile.open(os.path.join(docvqav0_dir, 'spdocvqa_images.tar.gz'), 'r:gz') as tref:
     extract_dir = os.path.join(docvqav0_dir, 'images')
@@ -79,11 +81,13 @@ print(f"****** DocVQA-v0 downloaded to: {docvqav0_dir}")
 ###################### DocVQA-due ######################
 docvqa_dir = os.path.join(args.root, DOCVQAdue)
 os.makedirs(docvqa_dir, exist_ok=True)
-
-# docvqa_imdb_url = 'docvqa.due/imdbs.zip'
-# download_file(docvqa_imdb_url, docvqa_dir)
-with zipfile.ZipFile(os.path.join(docvqa_dir, 'imdbs.zip'), 'r') as zref:
+print(f"****** DocVQA-due downloading imdbs...")
+docvqa_imdb_path = os.path.join(docvqa_dir, 'imdbs.zip')
+docvqa_imdb_gdid = '152ftKcfq8X-mJyuje4TCK6qmtzbCR5yv'
+gdownload(docvqa_imdb_gdid, docvqa_imdb_path)
+with zipfile.ZipFile(docvqa_imdb_path, 'r') as zref:
     zref.extractall(docvqa_dir)
+print(f"****** DocVQA-due copying images...")
 shutil.copytree(
     os.path.join(docvqa_dir, '../', DOCVQAv0, 'images'),
     os.path.join(docvqa_dir, 'images')
@@ -157,6 +161,7 @@ cutoff_d = len(due_document_dict); cutoff_q = len(due_mia_npy)
 for _d in tqdm(list(nontrain_dict.keys()), desc='non-member docs'):
     due_d_data, v0_d_data = [], []
     for _ind in nontrain_dict[_d]['indices']:
+
         due_d_data.append(due_NON_TRAIN[_ind])
         v0_d_data.append(v0_nontrain_questions[due_NON_TRAIN[_ind]['metadata']['question_id']])
 
@@ -194,7 +199,7 @@ print(f"DocVQA-v0: "
         +f"member={len([_v for _v in v0_document_dict.values() if _v['label'] == 1])}/{len(v0_mia_npy[:cutoff_q])}, "
         +f"non-member={len([_v for _v in v0_document_dict.values() if _v['label'] == 0])}/{len(v0_mia_npy[cutoff_q:])}")
 assert all([
-    (_rdue['image_name'] == _rdue['image_name'])
+    (_rdue['image_name'] == _rv0['image_name'])
     and (Image.open(os.path.join(docvqa_dir, 'images', f"{_rdue['image_name']}.png")).size == Image.open(os.path.join(docvqa_dir, 'images', f"{_rv0['image_name']}.png")).size)
     and (_rdue['question'] == _rv0['question'])
     for _rdue,_rv0 in zip(due_mia_npy,v0_mia_npy)
@@ -251,14 +256,21 @@ if args.dvqa_pilot:
 
 ##################### PFL-DocVQA ######################
 pfl_dir = os.path.join(args.root, PFLDOCVQA)
-assert os.path.isdir(pfl_dir)
+os.makedirs(pfl_dir, exist_ok=True)
 
-pfl_imdb_url = 'pfl.docvqa/imdbs.zip'
-download_file(pfl_imdb_url, pfl_dir)
-with zipfile.ZipFile(os.path.join(pfl_dir, 'imdbs.zip'), 'r') as zref:
+print(f"****** PFL-DocVQA downloading imdbs...")
+pfl_imdb_path = os.path.join(pfl_dir, 'imdbs.zip')
+pfl_imdb_gdid = '1C8j7rrwjyDdYPWFXgw9XT1fOfIMAa6VQ'
+gdownload(pfl_imdb_gdid, pfl_imdb_path)
+pfl_red_images_gdid = '1qYY_ipeQHaO4PCkyXdfAzAZU9N8dRjU-'
+gdownload(pfl_red_images_gdid, os.path.join(pfl_dir, 'red_images.zip'))
+print(f"****** PFL-DocVQA extracting images...")
+with zipfile.ZipFile(pfl_imdb_path, 'r') as zref:
     zref.extractall(pfl_dir)
 with zipfile.ZipFile(os.path.join(pfl_dir, 'images.zip'), 'r') as zref:
     zref.extractall(pfl_dir)
+with zipfile.ZipFile(os.path.join(pfl_dir, 'red_images.zip'), 'r') as zref:
+    zref.extractall(os.path.join(pfl_dir, 'images'))
 print(f"****** PFL-DocVQA downloaded to: {pfl_dir}")
 print(f"****** Check PFL-DocVQA data and convert...")
 
@@ -312,8 +324,7 @@ document_dict = {
     )
 }
 assert '1a41baf416dbf2e74b0fd6d5' not in document_dict  # random check
-print(f"PFL Documents, after filtered (members/non-members): "
-    +f"{len(document_dict)}({len(document_dict)-cutoff_d}/{cutoff_d})")
+print(f"PFL Documents, after filtered (members/non-members): {len(document_dict)}({len(document_dict)-cutoff_d}/{cutoff_d})")
 
 # 5. Now, extract data for each document, first IN documents
 pfl_mia_npy = [
@@ -361,7 +372,5 @@ if args.pfl_pilot:
 
     with open(os.path.join(pfl_dir, f'pilot/seed{seed}', f'{PFLDOCVQA}_mia.json'), 'w') as f:
         json.dump(pilot_document_dict, f)
-
-
 
 print(f"###################### FINISHED!")

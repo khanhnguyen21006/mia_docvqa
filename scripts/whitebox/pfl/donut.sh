@@ -9,7 +9,7 @@ model=donut
 ckpt=/path/to/pfl/checkpoint
 
 dataset=pfl
-data_root=/data/users/vkhanh/mia_docvqa/data  # change to DATA_ROOT
+data_root=./data  # change to DATA_ROOT
 data_dir="${data_root}/${dataset}"
 pilot=300  # 0 if use all data
 
